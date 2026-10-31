@@ -8,4 +8,5 @@ class ShareModelForm(forms.ModelForm):
 
     class Meta:
         model = Share
-        fields = "__all__"
+        # last_price, is_trend_high, updated_at управляются системой автоматически
+        fields = ["figi", "isin", "name", "ticker", "currency", "uid"]

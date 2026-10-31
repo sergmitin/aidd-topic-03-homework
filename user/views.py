@@ -10,27 +10,28 @@ class AuthView(View):
 
     @staticmethod
     def get(request):
-        return render(request, "user/auth.html", {"form": AuthForm})
+        return render(request, "user/auth.html", {"form": AuthForm()})
 
     @staticmethod
     def post(request):
         form = AuthForm(request.POST)
-        user = authenticate(
-            request, username=form.data["email"].lower(), password=form.data["password"]
-        )
+        if form.is_valid():
+            email = form.cleaned_data.get("email", "").lower()
+            password = form.cleaned_data.get("password", "")
+            user = authenticate(request, username=email, password=password)
 
-        if user is not None:
-            login(request, user)
-            return redirect("dashboard:index")
-        else:
-            return render(
-                request,
-                "user/auth.html",
-                {
-                    "form": form,
-                    "error": "Неверный логин или пароль! Повторите попытку.",
-                },
-            )
+            if user is not None:
+                login(request, user)
+                return redirect("dashboard:index")
+
+        return render(
+            request,
+            "user/auth.html",
+            {
+                "form": form,
+                "error": "Неверный логин или пароль! Повторите попытку.",
+            },
+        )
 
 
 class RegistrationView(View):
@@ -38,20 +39,29 @@ class RegistrationView(View):
 
     @staticmethod
     def get(request):
-        return render(request, "user/registration.html", {"form": RegistrationForm})
+        return render(request, "user/registration.html", {"form": RegistrationForm()})
 
     @staticmethod
     def post(request):
         form = RegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user)
+            if user:
+                login(request, user)
             return redirect("dashboard:index")
         else:
+            error_message = None
+            if "__all__" in form.errors:
+                error_message = form.errors["__all__"][0]
+            elif form.errors:
+                # Берем первую ошибку из полей формы
+                first_field_errors = next(iter(form.errors.values()))
+                error_message = first_field_errors[0]
+
             return render(
                 request,
                 "user/registration.html",
-                {"form": form, "error": form.errors["__all__"].data[0].message},
+                {"form": form, "error": error_message},
             )
 
 
