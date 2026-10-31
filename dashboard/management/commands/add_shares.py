@@ -1,6 +1,9 @@
+from datetime import timedelta
+import random
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 from config.settings import TINKOFF_TOKEN
-from dashboard.models import Share
+from dashboard.models import Share, SharePriceHistory
 
 DEMO_SHARES = [
     {
@@ -48,9 +51,9 @@ DEMO_SHARES = [
         "ticker": "AAPL",
         "figi": "BBG000B9XRY4",
         "isin": "US0378331005",
-        "currency": "USD",
+        "currency": "RUB",
         "uid": "a9eb4238-eba9-488c-b102-b6140fd08e38",
-        "last_price": 225.40,
+        "last_price": 21600.00,
         "is_trend_high": True,
     },
 ]
@@ -95,13 +98,22 @@ class Command(BaseCommand):
                 )
 
         # Fallback на встроенные демонстрационные акции
+        now = timezone.now()
         for item in DEMO_SHARES:
-            _, created = Share.objects.get_or_create(
+            share, created = Share.objects.get_or_create(
                 ticker=item["ticker"],
                 defaults=item,
             )
             if created:
                 imported_count += 1
+
+            # Фиксируем начальную цену акции в истории котировок, если истории ещё нет
+            if share.last_price and not share.price_history.exists():
+                SharePriceHistory.objects.create(
+                    share=share,
+                    price=share.last_price,
+                    recorded_at=now,
+                )
 
         self.stdout.write(
             self.style.SUCCESS(

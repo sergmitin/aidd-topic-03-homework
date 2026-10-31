@@ -1,34 +1,105 @@
 {% extends "dashboard/base.html" %}
 
 {% block title %}
-<title>Детальная информация - {{ share.name }}</title>
+    <title>{{ share.name }} ({{ share.ticker }}) — Детальная информация</title>
 {% endblock %}
 
 {% block content %}
-    <div class="row">
-        <div class="col-md-8 offset-md-2 card p-4 shadow-sm mb-4">
-            <h3 class="mb-3">{{ share.name }} <span class="badge badge-secondary">{{ share.ticker }}</span></h3>
-            <p class="mb-1"><strong>ISIN:</strong> {{ share.isin }}</p>
-            <p class="mb-1"><strong>FIGI:</strong> {{ share.figi }}</p>
-            <p class="mb-1">
-                <strong>Текущая цена:</strong> 
-                <span class="{% if share.is_trend_high %}text-success{% else %}text-danger{% endif %}" style="font-size: 1.25rem; font-weight: 600;">
-                    {{ share.last_price }} {{ share.currency }}
-                </span>
-            </p>
-            <p class="text-muted mb-0"><small>Время последнего обновления: {{ share.updated_at|default:"Не зафиксировано" }}</small></p>
-        </div>
-    </div>
+<div class="row">
+    <div class="col-md-10 offset-md-1">
+        <!-- Навигационные крошки -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb bg-transparent p-0 mb-3">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Котировки</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ share.ticker }}</li>
+            </ol>
+        </nav>
 
-    <div class="row">
-        <div class="col-md-8 offset-md-2 card p-3 shadow-sm">
-            <h5 class="mb-3">Исторические данные:</h5>
-            {% autoescape off %}
-            {{ plot_div }}
-            {% endautoescape %}
-            <div class="mt-3 text-right">
-                <a href="{% url 'dashboard:index' %}" class="btn btn-outline-secondary">Вернуться к списку</a>
+        <!-- Карточка инструмента -->
+        <div class="card p-4 shadow-sm mb-4 bg-white border-0">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <div>
+                    <h2 class="font-weight-bold text-dark mb-1">
+                        {{ share.name }} <span class="badge badge-primary">{{ share.ticker }}</span>
+                    </h2>
+                    <p class="text-muted small mb-0">ISIN: {{ share.isin }} &bull; FIGI: {{ share.figi }}</p>
+                </div>
+                <div class="text-right">
+                    <span class="badge px-3 py-2 text-white" style="font-size: 1.25rem; background-color: {% if share.is_trend_high %}#198754{% else %}#dc3545{% endif %};">
+                        {{ share.last_price|default:"—" }} {{ share.currency }}
+                        {% if share.is_trend_high %}&#9650;{% else %}&#9660;{% endif %}
+                    </span>
+                    <div class="text-muted small mt-1">
+                        Обновлено: {{ share.updated_at|date:"d.m.Y H:i:s" }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Действия -->
+            <div class="d-flex flex-wrap gap-2 pt-3 border-top justify-content-between align-items-center">
+                <div>
+                    <a href="{% url 'dashboard:price_history' share.id %}" class="btn btn-outline-info mr-2">
+                        <i class="fa fa-area-chart"></i> История цен и динамика
+                    </a>
+                    {% if user.is_authenticated %}
+                        <form action="{% url 'dashboard:watchlist_toggle' share.id %}" method="post" class="d-inline mr-2">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-warning">
+                                <i class="fa fa-star"></i> В список наблюдения
+                            </button>
+                        </form>
+                        <button type="button" class="btn btn-success" data-toggle="modal" data-target="#buyModalDetail">
+                            <i class="fa fa-shopping-cart"></i> Купить акцию
+                        </button>
+                    {% endif %}
+                </div>
+                <div>
+                    <a href="{% url 'dashboard:index' %}" class="btn btn-outline-secondary">
+                        <i class="fa fa-arrow-left"></i> В каталог
+                    </a>
+                </div>
             </div>
         </div>
+
+        <!-- График котировок -->
+        <div class="card p-4 shadow-sm mb-4 bg-white border-0">
+            <h5 class="font-weight-bold mb-3"><i class="fa fa-line-chart text-primary"></i> График динамики котировок (180 дней)</h5>
+            {% autoescape off %}
+                {{ plot_div }}
+            {% endautoescape %}
+        </div>
     </div>
+</div>
+
+<!-- Модальное окно покупки на детальной странице -->
+{% if user.is_authenticated %}
+<div class="modal fade text-left" id="buyModalDetail" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <form action="{% url 'dashboard:portfolio_buy' %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="share_id" value="{{ share.id }}">
+                <div class="modal-header">
+                    <h5 class="modal-title font-weight-bold">Купить {{ share.name }} ({{ share.ticker }})</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Текущая цена акции: <strong>{{ share.last_price }} {{ share.currency }}</strong></p>
+                    <div class="form-group">
+                        <label>Количество акций (шт):</label>
+                        <input type="number" name="quantity" class="form-control" value="1" min="1" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-success">Подтвердить покупку</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}

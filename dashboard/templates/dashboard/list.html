@@ -1,71 +1,146 @@
 {% extends "dashboard/base.html" %}
 
 {% block title %}
-    <title>Список акций</title>
+    <title>Каталог акций — Investing Demo</title>
 {% endblock %}
 
 {% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2><i class="fa fa-line-chart text-primary"></i> Рыночные котировки</h2>
+        {% if user.is_authenticated %}
+            <div>
+                <a href="{% url 'dashboard:create' %}" class="btn btn-primary">
+                    <i class="fa fa-plus-circle"></i> Добавить инструмент
+                </a>
+            </div>
+        {% else %}
+            <div>
+                <a href="{% url 'user:registration' %}" class="btn btn-primary btn-sm mr-1">
+                    <i class="fa fa-user-plus"></i> Начать инвестировать (100 000 RUB)
+                </a>
+            </div>
+        {% endif %}
+    </div>
 
-    {% if user.is_authenticated %}
-        <div>
-            <a href="{% url 'dashboard:create' %}" class="btn btn-primary">Добавить</a>
+    {% if not user.is_authenticated and share_list %}
+        <div class="alert alert-info d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <i class="fa fa-info-circle fa-lg mr-2"></i>
+                <strong>Гостевой режим:</strong> Вы просматриваете рыночные цены акций. Зарегистрируйтесь, чтобы открыть виртуальный портфель со 100 000 RUB, отслеживать избранное и запускать торговых роботов.
+            </div>
+            <div>
+                <a href="{% url 'user:registration' %}" class="btn btn-sm btn-info text-white font-weight-bold">Открыть портфель</a>
+            </div>
         </div>
     {% endif %}
 
     {% if share_list %}
-        <table class="table table-striped">
-            <thead>
-            <tr>
-                <th scope="col">Тикер</th>
-                <th scope="col">Название</th>
-                <th scope="col">ISIN</th>
-                <th scope="col">Текущая цена</th>
-                {% if user.is_authenticated %}
-                    <th scope="col">Управление</th>
-                {% endif %}
-            </tr>
-            </thead>
-            <tbody>
-
-            {% for share in share_list %}
+        <div class="table-responsive bg-white rounded shadow-sm p-3 mb-4">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="thead-light">
                 <tr>
-                    <td><a href="{% url 'dashboard:detail' share.id %}"> {{share.ticker}} </a></td>
-                    <td>{{share.name}}</td>
-                    <td>{{share.isin}}</td>
-                    {%  if  share.is_trend_high %}
-                        <td style="background-color: mediumseagreen">
-                            {%  else  %}
-                        <td style="background-color: palevioletred">
-                    {% endif %}
-                    {{share.last_price}} {{ share.currency }}</td>
                     {% if user.is_authenticated %}
+                        <th scope="col" style="width: 50px;" title="Список наблюдения">★</th>
+                    {% endif %}
+                    <th scope="col">Тикер</th>
+                    <th scope="col">Название компании</th>
+                    <th scope="col">ISIN</th>
+                    <th scope="col">Текущая цена</th>
+                    <th scope="col">Аналитика</th>
+                    {% if user.is_authenticated %}
+                        <th scope="col" class="text-right">Управление</th>
+                    {% endif %}
+                </tr>
+                </thead>
+                <tbody>
+                {% for share in share_list %}
+                    <tr>
+                        {% if user.is_authenticated %}
+                            <td>
+                                <form action="{% url 'dashboard:watchlist_toggle' share.id %}" method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-link p-0 text-warning" title="{% if share.id in watchlist_ids %}Удалить из избранного{% else %}Добавить в избранное{% endif %}">
+                                        <i class="fa {% if share.id in watchlist_ids %}fa-star{% else %}fa-star-o{% endif %}" style="font-size: 1.2rem;"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        {% endif %}
                         <td>
-                            <a href="{% url 'dashboard:update' share.id %}" class="btn btn-secondary">
-                                Редактировать
-                            </a>
-                            <a href="{% url 'dashboard:delete' share.id %}" class="btn btn-danger">
-                                Удалить
+                            <a href="{% url 'dashboard:detail' share.id %}" class="font-weight-bold text-primary">
+                                {{ share.ticker }}
                             </a>
                         </td>
-                    {% endif %}
+                        <td>{{ share.name }}</td>
+                        <td><small class="text-muted">{{ share.isin }}</small></td>
+                        <td>
+                            <span class="badge px-3 py-2 text-white" style="font-size: 0.95rem; background-color: {% if share.is_trend_high %}#198754{% else %}#dc3545{% endif %};">
+                                {{ share.last_price|default:"—" }} {{ share.currency }}
+                                {% if share.is_trend_high %}&#9650;{% else %}&#9660;{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'dashboard:price_history' share.id %}" class="btn btn-sm btn-outline-info" title="История цен и динамика">
+                                <i class="fa fa-area-chart"></i> История цен
+                            </a>
+                        </td>
+                        {% if user.is_authenticated %}
+                            <td class="text-right">
+                                <!-- Кнопка покупки в портфель -->
+                                <button type="button" class="btn btn-sm btn-outline-success mr-1" data-toggle="modal" data-target="#buyModal{{ share.id }}">
+                                    <i class="fa fa-shopping-cart"></i> Купить
+                                </button>
+                                <a href="{% url 'dashboard:update' share.id %}" class="btn btn-sm btn-outline-secondary mr-1">
+                                    <i class="fa fa-pencil"></i>
+                                </a>
+                                <a href="{% url 'dashboard:delete' share.id %}" class="btn btn-sm btn-outline-danger">
+                                    <i class="fa fa-trash"></i>
+                                </a>
 
-                </tr>
-            {% endfor %}
+                                <!-- Модальное окно покупки -->
+                                <div class="modal fade text-left" id="buyModal{{ share.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered" role="document">
+                                        <div class="modal-content">
+                                            <form action="{% url 'dashboard:portfolio_buy' %}" method="post">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="share_id" value="{{ share.id }}">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Купить {{ share.name }} ({{ share.ticker }})</h5>
+                                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                        <span aria-hidden="true">&times;</span>
+                                                    </button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <p>Текущая цена: <strong>{{ share.last_price }} {{ share.currency }}</strong></p>
+                                                    <div class="form-group">
+                                                        <label>Количество акций (шт):</label>
+                                                        <input type="number" name="quantity" class="form-control" value="1" min="1" required>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                                                    <button type="submit" class="btn btn-success">Подтвердить покупку</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-
-
-            </tbody>
-        </table>
-
-        <div class="btn-group" role="group" aria-label="Item pagination">
+        <div class="btn-group mb-4" role="group" aria-label="Item pagination">
             {% if page_obj.has_previous %}
                 <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline-primary">&laquo;</a>
             {% endif %}
 
             {% for page_number in page_obj.paginator.page_range %}
                 {% if page_obj.number == page_number %}
-                    <button class="btn btn-outline-primary active">
-                        <span>{{ page_number }} <span class="sr-only">(current)</span></span>
+                    <button class="btn btn-primary active">
+                        <span>{{ page_number }}</span>
                     </button>
                 {% else %}
                     <a href="?page={{ page_number }}" class="btn btn-outline-primary">
@@ -79,10 +154,33 @@
             {% endif %}
         </div>
 
-
     {% else %}
-        <p>Акций еще нет</p>
+        <div class="card shadow-sm p-5 text-center bg-white border-0">
+            <div class="mb-3">
+                <i class="fa fa-line-chart fa-4x text-muted opacity-50"></i>
+            </div>
+            <h4 class="font-weight-bold text-dark">В каталоге пока нет акций</h4>
+            <p class="text-muted mb-4" style="max-width: 600px; margin: 0 auto;">
+                Нажмите кнопку ниже, чтобы мгновенно наполнить каталог готовым стартовым набором популярных акций (Сбербанк, Яндекс, Газпром, Лукойл, Apple) с котировками и графиками.
+            </p>
+            <div class="mt-4">
+                <form action="{% url 'dashboard:load_demo_shares' %}" method="post" class="d-inline mr-2">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary btn-lg shadow-sm">
+                        <i class="fa fa-download"></i> Загрузить демонстрационные акции
+                    </button>
+                </form>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'dashboard:create' %}" class="btn btn-outline-secondary btn-lg">
+                        <i class="fa fa-plus"></i> Добавить акцию вручную
+                    </a>
+                {% else %}
+                    <a href="{% url 'user:registration' %}" class="btn btn-outline-primary btn-lg">
+                        <i class="fa fa-user-plus"></i> Зарегистрироваться
+                    </a>
+                {% endif %}
+            </div>
+        </div>
     {% endif %}
-
 
 {% endblock %}

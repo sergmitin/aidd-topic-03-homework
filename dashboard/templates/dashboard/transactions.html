@@ -1,0 +1,89 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}
+    <title>История сделок — Investing Demo</title>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fa fa-history text-primary"></i> История операций с активами</h2>
+        <p class="text-muted mb-0">Полный журнал виртуальных сделок покупки и продажи акций</p>
+    </div>
+    <a href="{% url 'dashboard:portfolio' %}" class="btn btn-outline-primary">
+        <i class="fa fa-arrow-left"></i> Вернуться в портфель
+    </a>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body p-0">
+        {% if transactions %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Дата и время</th>
+                            <th>Тип операции</th>
+                            <th>Инструмент</th>
+                            <th>Количество</th>
+                            <th>Цена сделки</th>
+                            <th>Общая сумма</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in transactions %}
+                            <tr>
+                                <td>{{ tx.created_at|date:"d.m.Y H:i:s" }}</td>
+                                <td>
+                                    {% if tx.transaction_type == 'BUY' %}
+                                        <span class="badge badge-success px-2 py-1"><i class="fa fa-arrow-down"></i> Покупка</span>
+                                    {% else %}
+                                        <span class="badge badge-danger px-2 py-1"><i class="fa fa-arrow-up"></i> Продажа</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>{{ tx.share.ticker }}</strong>
+                                    <span class="text-muted small">({{ tx.share.name }})</span>
+                                </td>
+                                <td>{{ tx.quantity }} шт.</td>
+                                <td>{{ tx.price }} {{ tx.share.currency }}</td>
+                                <td><strong>{{ tx.total_amount }} {{ tx.share.currency }}</strong></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Пагинация -->
+            {% if is_paginated %}
+                <div class="p-3 border-top d-flex justify-content-center">
+                    <div class="btn-group" role="group" aria-label="Pagination">
+                        {% if page_obj.has_previous %}
+                            <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline-primary">&laquo;</a>
+                        {% endif %}
+
+                        {% for page_number in page_obj.paginator.page_range %}
+                            {% if page_obj.number == page_number %}
+                                <button class="btn btn-primary active">{{ page_number }}</button>
+                            {% else %}
+                                <a href="?page={{ page_number }}" class="btn btn-outline-primary">{{ page_number }}</a>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                            <a href="?page={{ page_obj.next_page_number }}" class="btn btn-outline-primary">&raquo;</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+
+        {% else %}
+            <div class="p-5 text-center text-muted">
+                <i class="fa fa-exchange fa-3x mb-3 text-secondary"></i>
+                <p class="mb-2">Вы пока не совершили ни одной сделки.</p>
+                <a href="{% url 'dashboard:portfolio' %}" class="btn btn-primary btn-sm">Перейти в портфель</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

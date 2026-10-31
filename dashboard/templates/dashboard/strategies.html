@@ -1,0 +1,218 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}
+    <title>Симулятор торговых стратегий — Investing Demo</title>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fa fa-cogs text-primary"></i> Симулятор инвестиционных стратегий</h2>
+        <p class="text-muted mb-0">Алгоритмические торговые роботы, автоматическая симуляция сделок на основе ценовых порогов</p>
+    </div>
+    <button class="btn btn-primary" data-toggle="modal" data-target="#createStrategyModal">
+        <i class="fa fa-plus-circle"></i> Создать стратегию
+    </button>
+</div>
+
+<!-- Список активных и настроенных стратегий -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 font-weight-bold">Мои торговые роботы</h5>
+        <span class="badge badge-secondary">{{ strategies|length }}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if strategies %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Название и актив</th>
+                            <th>Статус</th>
+                            <th>Пороги (BUY &le; / SELL &ge;)</th>
+                            <th>Позиция в роботе</th>
+                            <th>Текущий капитал</th>
+                            <th>P&L робота</th>
+                            <th>Сделок</th>
+                            <th class="text-right">Управление</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for st in strategies %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'dashboard:strategy_detail' st.id %}" class="font-weight-bold text-primary">
+                                        {{ st.name }}
+                                    </a><br>
+                                    <small class="text-muted">{{ st.share.ticker }} &bull; Рыночная цена: {{ st.share.last_price|default:"—" }} {{ st.share.currency }}</small>
+                                </td>
+                                <td>
+                                    {% if st.is_active %}
+                                        <span class="badge badge-success px-2 py-1"><i class="fa fa-play"></i> Активна</span>
+                                    {% else %}
+                                        <span class="badge badge-secondary px-2 py-1"><i class="fa fa-pause"></i> На паузе</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge badge-outline-success border border-success text-success">
+                                        Купить &le; {{ st.buy_threshold }}
+                                    </span><br>
+                                    <span class="badge badge-outline-danger border border-danger text-danger mt-1">
+                                        Продать &ge; {{ st.sell_threshold }}
+                                    </span>
+                                </td>
+                                <td>{{ st.current_position_shares }} шт.</td>
+                                <td>
+                                    <strong>{{ st.current_capital|floatformat:2 }} RUB</strong><br>
+                                    <small class="text-muted">Всего: {{ st.total_value|floatformat:2 }} RUB</small>
+                                </td>
+                                <td class="{% if st.profit_loss >= 0 %}text-success font-weight-bold{% else %}text-danger font-weight-bold{% endif %}">
+                                    {{ st.profit_loss|floatformat:2 }} RUB<br>
+                                    <small>({{ st.profit_loss_percent }}%)</small>
+                                </td>
+                                <td>{{ st.total_trades_count }}</td>
+                                <td class="text-right">
+                                    <a href="{% url 'dashboard:strategy_detail' st.id %}" class="btn btn-sm btn-outline-info mr-1" title="Журнал сделок">
+                                        <i class="fa fa-list"></i>
+                                    </a>
+                                    <form action="{% url 'dashboard:strategy_toggle' st.id %}" method="post" class="d-inline mr-1">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm {% if st.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}" title="{% if st.is_active %}Приостановить{% else %}Возобновить{% endif %}">
+                                            <i class="fa {% if st.is_active %}fa-pause{% else %}fa-play{% endif %}"></i>
+                                        </button>
+                                    </form>
+                                    <form action="{% url 'dashboard:strategy_delete' st.id %}" method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить стратегию" onclick="return confirm('Удалить эту стратегию?');">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="p-5 text-center text-muted">
+                <i class="fa fa-cogs fa-3x mb-3 text-secondary"></i>
+                <p class="mb-2">У вас пока нет настроенных торговых роботов.</p>
+                <p class="small text-muted mb-3">Задайте целевые коридоры покупки и продажи акции, и робот автоматически сымитирует исполнение ордеров.</p>
+                <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#createStrategyModal">
+                    Создать первую стратегию
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Журнал последних действий торговых роботов -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+        <h5 class="mb-0 font-weight-bold"><i class="fa fa-terminal text-secondary"></i> Свежие события торговых роботов</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if recent_logs %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Время</th>
+                            <th>Робот / Стратегия</th>
+                            <th>Действие</th>
+                            <th>Цена</th>
+                            <th>Количество</th>
+                            <th>Сообщение</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in recent_logs %}
+                            <tr>
+                                <td><small class="text-muted">{{ log.created_at|date:"d.m.Y H:i:s" }}</small></td>
+                                <td><strong>{{ log.strategy.name }}</strong> ({{ log.strategy.share.ticker }})</td>
+                                <td>
+                                    {% if log.action == 'BUY' %}
+                                        <span class="badge badge-success">BUY</span>
+                                    {% elif log.action == 'SELL' %}
+                                        <span class="badge badge-danger">SELL</span>
+                                    {% elif log.action == 'HOLD' %}
+                                        <span class="badge badge-secondary">HOLD</span>
+                                    {% else %}
+                                        <span class="badge badge-warning">{{ log.action }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.price|default:"—" }}</td>
+                                <td>{{ log.quantity }} шт.</td>
+                                <td><small class="text-dark">{{ log.message }}</small></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="p-4 text-center text-muted">
+                <p class="mb-0 small">Журнал событий пока пуст. При поступлении новых тиков цен роботы начнут фиксировать действия.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Модальное окно создания стратегии -->
+<div class="modal fade" id="createStrategyModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <form action="{% url 'dashboard:strategies' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title font-weight-bold"><i class="fa fa-plus-circle text-primary"></i> Новая торговая стратегия</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Название стратегии:</label>
+                        <input type="text" name="name" class="form-control" placeholder="Например: Сбербанк свинг-бот" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Торговый инструмент:</label>
+                        <select name="share_id" class="form-control" required>
+                            {% for sh in shares %}
+                                <option value="{{ sh.id }}">
+                                    {{ sh.ticker }} — {{ sh.name }} (Текущая цена: {{ sh.last_price|default:"—" }} {{ sh.currency }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 form-group">
+                            <label>Порог покупки (&le;):</label>
+                            <input type="number" step="0.01" name="buy_threshold" class="form-control" placeholder="Например: 260.0" required>
+                            <small class="form-text text-muted">Покупать, если цена опустилась ниже или равна порогу.</small>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label>Порог продажи (&ge;):</label>
+                            <input type="number" step="0.01" name="sell_threshold" class="form-control" placeholder="Например: 295.0" required>
+                            <small class="form-text text-muted">Продавать, если цена поднялась выше или равна порогу.</small>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 form-group">
+                            <label>Размер лота сделки (шт):</label>
+                            <input type="number" name="trade_quantity" class="form-control" value="1" min="1" required>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label>Стартовый капитал (RUB):</label>
+                            <input type="number" step="0.01" name="initial_capital" class="form-control" value="50000" min="1000" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa fa-play"></i> Запустить робота</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}
+    <title>Стратегия: {{ strategy.name }} — Investing Demo</title>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb bg-transparent p-0 mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard:strategies' %}">Стратегии</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ strategy.name }}</li>
+            </ol>
+        </nav>
+        <h2>
+            <i class="fa fa-cogs text-primary"></i> {{ strategy.name }}
+            {% if strategy.is_active %}
+                <span class="badge badge-success" style="font-size: 0.9rem;">Активна</span>
+            {% else %}
+                <span class="badge badge-secondary" style="font-size: 0.9rem;">На паузе</span>
+            {% endif %}
+        </h2>
+    </div>
+
+    <div>
+        <form action="{% url 'dashboard:strategy_toggle' strategy.id %}" method="post" class="d-inline mr-2">
+            {% csrf_token %}
+            <button type="submit" class="btn {% if strategy.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                <i class="fa {% if strategy.is_active %}fa-pause{% else %}fa-play{% endif %}"></i>
+                {% if strategy.is_active %}Приостановить{% else %}Возобновить{% endif %}
+            </button>
+        </form>
+        <a href="{% url 'dashboard:strategies' %}" class="btn btn-outline-secondary">
+            <i class="fa fa-arrow-left"></i> К списку стратегий
+        </a>
+    </div>
+</div>
+
+<!-- Метрики робота -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-2">
+        <div class="card card-stat p-3 bg-white shadow-sm">
+            <span class="text-muted small text-uppercase">Торговый актив</span>
+            <h4 class="mb-0 font-weight-bold text-dark">{{ strategy.share.ticker }}</h4>
+            <small class="text-muted">Текущая цена: {{ strategy.share.last_price|default:"—" }} {{ strategy.share.currency }}</small>
+        </div>
+    </div>
+    <div class="col-md-3 mb-2">
+        <div class="card card-stat p-3 bg-white shadow-sm">
+            <span class="text-muted small text-uppercase">Позиция в роботе</span>
+            <h4 class="mb-0 font-weight-bold text-primary">{{ strategy.current_position_shares }} шт.</h4>
+            <small class="text-muted">Лот сделки: {{ strategy.trade_quantity }} шт.</small>
+        </div>
+    </div>
+    <div class="col-md-3 mb-2">
+        <div class="card card-stat p-3 bg-white shadow-sm">
+            <span class="text-muted small text-uppercase">Текущий капитал (кэш + акции)</span>
+            <h4 class="mb-0 font-weight-bold text-dark">{{ strategy.total_value|floatformat:2 }} RUB</h4>
+            <small class="text-muted">Кэш: {{ strategy.current_capital|floatformat:2 }} RUB</small>
+        </div>
+    </div>
+    <div class="col-md-3 mb-2">
+        <div class="card card-stat p-3 bg-white shadow-sm">
+            <span class="text-muted small text-uppercase">P&L Робота</span>
+            <h4 class="mb-0 font-weight-bold {% if strategy.profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
+                {{ strategy.profit_loss|floatformat:2 }} RUB ({{ strategy.profit_loss_percent }}%)
+            </h4>
+            <small class="text-muted">Старт: {{ strategy.initial_capital|floatformat:2 }} RUB</small>
+        </div>
+    </div>
+</div>
+
+<!-- Условия алгоритма -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+        <h5 class="mb-0 font-weight-bold">Алгоритмические параметры торгового робота</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <p class="mb-1 text-muted">Порог автоматической покупки:</p>
+                <h5 class="text-success font-weight-bold">&le; {{ strategy.buy_threshold }} {{ strategy.share.currency }}</h5>
+                <small class="text-muted">Если рыночная цена падает до этой отметки или ниже, робот покупает {{ strategy.trade_quantity }} шт.</small>
+            </div>
+            <div class="col-md-4">
+                <p class="mb-1 text-muted">Порог автоматической продажи:</p>
+                <h5 class="text-danger font-weight-bold">&ge; {{ strategy.sell_threshold }} {{ strategy.share.currency }}</h5>
+                <small class="text-muted">Если рыночная цена поднимается до этой отметки или выше, робот продает {{ strategy.trade_quantity }} шт.</small>
+            </div>
+            <div class="col-md-4">
+                <p class="mb-1 text-muted">Статистика исполнения:</p>
+                <p class="mb-1">Всего срабатываний: <strong>{{ strategy.total_trades_count }}</strong></p>
+                <p class="mb-0">Успешных сделок: <strong>{{ strategy.successful_trades_count }}</strong></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Журнал исполнения ордеров конкретной стратегии -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+        <h5 class="mb-0 font-weight-bold"><i class="fa fa-list text-primary"></i> Журнал исполнения стратегии</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if logs %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Время</th>
+                            <th>Действие</th>
+                            <th>Цена тика</th>
+                            <th>Количество</th>
+                            <th>Сумма сделки</th>
+                            <th>Результат / Лог</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                            <tr>
+                                <td>{{ log.created_at|date:"d.m.Y H:i:s" }}</td>
+                                <td>
+                                    {% if log.action == 'BUY' %}
+                                        <span class="badge badge-success">BUY</span>
+                                    {% elif log.action == 'SELL' %}
+                                        <span class="badge badge-danger">SELL</span>
+                                    {% elif log.action == 'HOLD' %}
+                                        <span class="badge badge-secondary">HOLD</span>
+                                    {% else %}
+                                        <span class="badge badge-warning">{{ log.action }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.price|default:"—" }}</td>
+                                <td>{{ log.quantity }} шт.</td>
+                                <td>{{ log.total_amount|default:"—" }}</td>
+                                <td>{{ log.message }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="p-5 text-center text-muted">
+                <i class="fa fa-clock-o fa-3x mb-3 text-secondary"></i>
+                <p class="mb-0">Сделок по данной стратегии ещё не проводилось.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

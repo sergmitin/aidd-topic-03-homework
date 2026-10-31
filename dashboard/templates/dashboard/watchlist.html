@@ -1,0 +1,179 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}
+    <title>Мониторинг и алерты — Investing Demo</title>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fa fa-bell text-primary"></i> Персональный мониторинг и ценовые алерты</h2>
+        <p class="text-muted mb-0">Отслеживание избранных инструментов и автоматические уведомления при достижении целевых цен</p>
+    </div>
+    <div>
+        <button class="btn btn-primary" data-toggle="modal" data-target="#createAlertModal">
+            <i class="fa fa-bullhorn"></i> Установить алерт
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Список наблюдения (Watchlist) -->
+    <div class="col-lg-7 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 font-weight-bold"><i class="fa fa-star text-warning"></i> Избранные акции (Watchlist)</h5>
+                <span class="badge badge-secondary">{{ watchlist|length }} инструментов</span>
+            </div>
+            <div class="card-body p-0">
+                {% if watchlist %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>Тикер</th>
+                                    <th>Компания</th>
+                                    <th>Текущая цена</th>
+                                    <th class="text-right">Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in watchlist %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'dashboard:detail' item.share.id %}" class="font-weight-bold text-primary">
+                                                {{ item.share.ticker }}
+                                            </a>
+                                        </td>
+                                        <td>{{ item.share.name }}</td>
+                                        <td>
+                                            <span class="badge px-2 py-1 text-white" style="background-color: {% if item.share.is_trend_high %}#198754{% else %}#dc3545{% endif %};">
+                                                {{ item.share.last_price|default:"—" }} {{ item.share.currency }}
+                                                {% if item.share.is_trend_high %}&#9650;{% else %}&#9660;{% endif %}
+                                            </span>
+                                        </td>
+                                        <td class="text-right">
+                                            <a href="{% url 'dashboard:price_history' item.share.id %}" class="btn btn-sm btn-outline-info mr-1" title="График и история">
+                                                <i class="fa fa-area-chart"></i>
+                                            </a>
+                                            <form action="{% url 'dashboard:watchlist_toggle' item.share.id %}" method="post" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить из избранного">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <i class="fa fa-star-o fa-3x mb-3 text-secondary"></i>
+                        <p class="mb-2">Ваш список наблюдения пуст.</p>
+                        <p class="small text-muted mb-3">Нажимайте звёздочку ★ в общем каталоге акций, чтобы добавить инструмент для мониторинга.</p>
+                        <a href="{% url 'dashboard:index' %}" class="btn btn-outline-primary btn-sm">Перейти в каталог</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Целевые ценовые уровни (Price Alerts) -->
+    <div class="col-lg-5 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 font-weight-bold"><i class="fa fa-crosshairs text-danger"></i> Ценовые алерты</h5>
+                <span class="badge badge-secondary">{{ alerts|length }}</span>
+            </div>
+            <div class="card-body p-0">
+                {% if alerts %}
+                    <div class="list-group list-group-flush">
+                        {% for alert in alerts %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ alert.share.ticker }}</strong>
+                                    <span class="small text-muted">({{ alert.share.name }})</span>
+                                    <div class="mt-1">
+                                        <span class="badge {% if alert.condition == 'above' %}badge-success{% else %}badge-warning{% endif %}">
+                                            {% if alert.condition == 'above' %}&gt;= Выше{% else %}&lt;= Ниже{% endif %} {{ alert.target_price }} {{ alert.share.currency }}
+                                        </span>
+                                        {% if alert.is_triggered %}
+                                            <span class="badge badge-secondary ml-1" title="Сработало {{ alert.triggered_at|date:'d.m.Y H:i' }}">
+                                                <i class="fa fa-check"></i> Сработало
+                                            </span>
+                                        {% else %}
+                                            <span class="badge badge-info ml-1">Активно</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div>
+                                    <form action="{% url 'dashboard:delete_alert' alert.id %}" method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить алерт">
+                                            <i class="fa fa-times"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <i class="fa fa-bell-slash-o fa-3x mb-3 text-secondary"></i>
+                        <p class="mb-2">Ценовые алерты не настроены.</p>
+                        <button class="btn btn-outline-primary btn-sm" data-toggle="modal" data-target="#createAlertModal">
+                            Создать первый алерт
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно установки ценового алерта -->
+<div class="modal fade" id="createAlertModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <form action="{% url 'dashboard:create_alert' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title font-weight-bold"><i class="fa fa-bullhorn text-primary"></i> Установить ценовой алерт</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Инструмент (акция):</label>
+                        <select name="share_id" class="form-control" required>
+                            {% for sh in all_shares %}
+                                <option value="{{ sh.id }}">
+                                    {{ sh.ticker }} — {{ sh.name }} (Текущая цена: {{ sh.last_price|default:"—" }} {{ sh.currency }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Условие срабатывания:</label>
+                        <select name="condition" class="form-control" required>
+                            <option value="above">Цена поднялась ВЫШЕ или РАВНА целевой (>=)</option>
+                            <option value="below">Цена опустилась НИЖЕ или РАВНА целевой (<=)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Целевая цена (в валюте инструмента):</label>
+                        <input type="number" step="0.01" name="target_price" class="form-control" placeholder="Например: 250.00" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa fa-check"></i> Сохранить алерт</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

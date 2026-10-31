@@ -1,0 +1,170 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}
+    <title>Мой инвестиционный портфель — Investing Demo</title>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fa fa-briefcase text-primary"></i> Виртуальный инвестиционный портфель</h2>
+    <a href="{% url 'dashboard:portfolio_transactions' %}" class="btn btn-outline-secondary">
+        <i class="fa fa-history"></i> История сделок
+    </a>
+</div>
+
+<!-- Метрики портфеля -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card card-stat p-3 bg-white shadow-sm">
+            <span class="text-muted small text-uppercase">Общая стоимость</span>
+            <h3 class="mb-0 font-weight-bold text-dark">{{ portfolio.total_portfolio_value }} RUB</h3>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card card-stat p-3 bg-white shadow-sm">
+            <span class="text-muted small text-uppercase">Свободные средства</span>
+            <h3 class="mb-0 font-weight-bold text-primary">{{ portfolio.cash_balance|floatformat:2 }} RUB</h3>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card card-stat p-3 bg-white shadow-sm">
+            <span class="text-muted small text-uppercase">Стоимость акций</span>
+            <h3 class="mb-0 font-weight-bold text-dark">{{ portfolio.total_positions_value }} RUB</h3>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card card-stat p-3 bg-white shadow-sm">
+            <span class="text-muted small text-uppercase">Прибыль / Убыток (P&L)</span>
+            <h3 class="mb-0 font-weight-bold {% if portfolio.total_profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
+                {{ portfolio.total_profit_loss }} RUB ({{ portfolio.total_profit_loss_percent }}%)
+            </h3>
+        </div>
+    </div>
+</div>
+
+<!-- Список открытых позиций -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 font-weight-bold">Открытые позиции (Акции в собственности)</h5>
+        <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#buyModal">
+            <i class="fa fa-plus"></i> Купить акцию
+        </button>
+    </div>
+    <div class="card-body p-0">
+        {% if positions %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Инструмент</th>
+                            <th>Количество</th>
+                            <th>Средняя цена покупки</th>
+                            <th>Текущая цена</th>
+                            <th>Текущая стоимость</th>
+                            <th>Прибыль / Убыток</th>
+                            <th>Доходность</th>
+                            <th class="text-right">Действие</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pos in positions %}
+                            <tr>
+                                <td>
+                                    <strong>{{ pos.share.ticker }}</strong><br>
+                                    <small class="text-muted">{{ pos.share.name }}</small>
+                                </td>
+                                <td>{{ pos.quantity }} шт.</td>
+                                <td>{{ pos.average_buy_price }} {{ pos.share.currency }}</td>
+                                <td>{{ pos.share.last_price }} {{ pos.share.currency }}</td>
+                                <td>{{ pos.current_value }} {{ pos.share.currency }}</td>
+                                <td class="{% if pos.profit_loss >= 0 %}text-success font-weight-bold{% else %}text-danger font-weight-bold{% endif %}">
+                                    {{ pos.profit_loss|stringformat:"+0.2f" }} {{ pos.share.currency }}
+                                </td>
+                                <td>
+                                    <span class="badge {% if pos.profit_loss_percent >= 0 %}badge-success{% else %}badge-danger{% endif %}">
+                                        {{ pos.profit_loss_percent|stringformat:"+0.2f" }}%
+                                    </span>
+                                </td>
+                                <td class="text-right">
+                                    <button class="btn btn-sm btn-outline-danger" data-toggle="modal" data-target="#sellModal{{ pos.id }}">
+                                        Продать
+                                    </button>
+
+                                    <!-- Модалка продажи -->
+                                    <div class="modal fade text-left" id="sellModal{{ pos.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+                                        <div class="modal-dialog modal-dialog-centered" role="document">
+                                            <div class="modal-content">
+                                                <form action="{% url 'dashboard:portfolio_sell' %}" method="post">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="share_id" value="{{ pos.share.id }}">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Продажа {{ pos.share.ticker }}</h5>
+                                                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p>Доступно для продажи: <strong>{{ pos.quantity }} шт.</strong></p>
+                                                        <p>Текущая рыночная цена: <strong>{{ pos.share.last_price }} {{ pos.share.currency }}</strong></p>
+                                                        <div class="form-group">
+                                                            <label>Количество для продажи:</label>
+                                                            <input type="number" name="quantity" class="form-control" value="{{ pos.quantity }}" min="1" max="{{ pos.quantity }}" required>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                                                        <button type="submit" class="btn btn-danger">Продать</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="p-4 text-center text-muted">
+                <p class="mb-2">В портфеле пока нет купленных акций.</p>
+                <button class="btn btn-primary" data-toggle="modal" data-target="#buyModal">
+                    Совершить первую покупку
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Модальное окно быстрой покупки -->
+<div class="modal fade" id="buyModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <form action="{% url 'dashboard:portfolio_buy' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Покупка акций в портфель</h5>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Выберите акцию:</label>
+                        <select name="share_id" class="form-control" required>
+                            {% for sh in shares %}
+                                <option value="{{ sh.id }}">{{ sh.name }} ({{ sh.ticker }}) — {{ sh.last_price }} {{ sh.currency }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Количество (шт):</label>
+                        <input type="number" name="quantity" class="form-control" value="1" min="1" required>
+                    </div>
+                    <p class="text-muted small">Сумма спишется со свободного остатка портфеля (доступно: {{ portfolio.cash_balance|floatformat:2 }} RUB).</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-success">Купить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

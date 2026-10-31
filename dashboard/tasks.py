@@ -4,6 +4,7 @@ from django.utils import timezone
 from config.celery import app
 from dashboard.models import Share
 from dashboard.services.market_data import get_last_data
+from dashboard.services.price_history import record_price_and_trigger_events
 
 logger = logging.getLogger("main")
 
@@ -31,6 +32,11 @@ def update_last_price():
                 is_trend_high=is_trend_high,
                 updated_at=timezone.now(),
             )
+
+            # Сохранение в историю, проверка алертов и исполнение стратегий
+            share.refresh_from_db()
+            record_price_and_trigger_events(share, last_price)
+
             logger.info(
                 f"Успешно обновлена цена {share.ticker}: {last_price} (рост: {is_trend_high})"
             )

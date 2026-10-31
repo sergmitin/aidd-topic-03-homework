@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect, render
 from django.views.generic import View
@@ -22,6 +23,7 @@ class AuthView(View):
 
             if user is not None:
                 login(request, user)
+                messages.success(request, f"Вы успешно вошли как {user.email}.")
                 return redirect("dashboard:index")
             error = "Неверный логин или пароль! Повторите попытку."
         else:
@@ -50,6 +52,10 @@ class RegistrationView(View):
         if form.is_valid():
             user = form.save()
             login(request, user)
+            messages.success(
+                request,
+                f"Добро пожаловать, {user.email}! Вам открыт виртуальный портфель со стартовым балансом 100 000 RUB.",
+            )
             return redirect("dashboard:index")
 
         error = None
