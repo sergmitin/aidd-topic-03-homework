@@ -1,32 +1,97 @@
 {% extends "dashboard/base.html" %}
 
-{% block title %}
-<title>Детальная информация</title>
-{% endblock %}
+{% block title %}{{ share.ticker }} — {{ share.name }}{% endblock %}
 
 {% block content %}
-    <div class="row">
-    <div class="col3"></div>
-    <div class="col3">
-        Инструмент: {{ share.name }} <br>
-        Текущая цена: {{ share.last_price }} {{ share.currency }} <br>
-        Время последнего обновления: {{ share.updated_at }}
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card p-3 shadow-sm mb-3">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <h3 class="h5 fw-bold mb-0">{{ share.name }}</h3>
+                    <span class="badge bg-primary">{{ share.ticker }}</span>
+                    <span class="badge bg-light text-dark border">{{ share.currency|upper }}</span>
+                </div>
+                {% if share.is_trend_high is True %}
+                    <span class="badge badge-trend-up fs-6"><i class="bi bi-arrow-up"></i> Растет</span>
+                {% elif share.is_trend_high is False %}
+                    <span class="badge badge-trend-down fs-6"><i class="bi bi-arrow-down"></i> Падает</span>
+                {% endif %}
+            </div>
+
+            <hr class="my-2">
+
+            <div class="mb-3">
+                <span class="text-muted small d-block">Текущая рыночная цена</span>
+                <span class="display-6 fw-bold text-primary">{{ share.last_price|default:"—" }} {{ share.currency|upper }}</span>
+            </div>
+
+            <ul class="list-group list-group-flush small mb-3">
+                <li class="list-group-item d-flex justify-content-between px-0">
+                    <span class="text-muted">ISIN:</span>
+                    <span class="font-monospace">{{ share.isin }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between px-0">
+                    <span class="text-muted">FIGI:</span>
+                    <span class="font-monospace text-truncate" style="max-width: 180px;">{{ share.figi }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between px-0">
+                    <span class="text-muted">UID:</span>
+                    <span class="font-monospace text-truncate" style="max-width: 180px;">{{ share.uid }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between px-0">
+                    <span class="text-muted">Последнее обновление:</span>
+                    <span>{{ share.updated_at|date:"d.m.Y H:i" }}</span>
+                </li>
+            </ul>
+
+            <div class="d-grid gap-2">
+                <a href="{% url 'dashboard:price_history' share.id %}" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-clock-history"></i> Анализ истории цен и доходности
+                </a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'dashboard:update' share.id %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-pencil"></i> Редактировать (изменить цену вручную)
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card p-3 shadow-sm">
+            <h6 class="fw-bold mb-2"><i class="bi bi-calculator"></i> Динамика за 30 дней</h6>
+            <div class="row g-2 text-center">
+                <div class="col-6">
+                    <div class="border rounded p-2 bg-light">
+                        <small class="text-muted d-block">Абсолютное изм.</small>
+                        <span class="fw-bold {% if stats.abs_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if stats.abs_change > 0 %}+{% endif %}{{ stats.abs_change }}
+                        </span>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="border rounded p-2 bg-light">
+                        <small class="text-muted d-block">Процентное изм.</small>
+                        <span class="fw-bold {% if stats.percent_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if stats.percent_change > 0 %}+{% endif %}{{ stats.percent_change }}%
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="col3"></div>
+
+    <div class="col-lg-8">
+        <div class="card p-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="fw-bold mb-0">Интерактивный график котировок</h5>
+                <span class="text-muted small">Plotly Chart</span>
+            </div>
+            <div class="chart-container">
+                {% autoescape off %}
+                    {{ plot_div }}
+                {% endautoescape %}
+            </div>
+        </div>
     </div>
-
-
-      <div class="row mt-3">
-    <div class="col3"></div>
-    <div class="col3">
-    <h5>Исторические данные: </h5>
- {% autoescape off %}
-  {{ plot_div }}
-  {% endautoescape %}
-    </div>
-    <div class="col3"></div>
-    </div>
-
-
-
+</div>
 {% endblock %}

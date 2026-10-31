@@ -1,0 +1,170 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Симулятор инвестиционных стратегий{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="h4 mb-0 fw-bold"><i class="bi bi-robot text-primary me-2"></i>Симулятор торговых стратегий</h2>
+        <p class="text-muted small mb-0">Автоматическое моделирование сделок купли/продажи по заданным правилам</p>
+    </div>
+    <div>
+        <a href="{% url 'dashboard:portfolio' %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-briefcase me-1"></i> Состояние портфеля
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Список стратегий -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white py-3">
+                <h5 class="fw-bold mb-0">Настроенные торговые стратегии</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Название и инструмент</th>
+                            <th class="text-center">Покупка при &le;</th>
+                            <th class="text-center">Продажа при &ge;</th>
+                            <th class="text-center">Объем</th>
+                            <th class="text-center">Сделок</th>
+                            <th class="text-center">Статус</th>
+                            <th class="text-end">Управление</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for s in strategies %}
+                        <tr>
+                            <td>
+                                <span class="fw-bold">{{ s.name }}</span>
+                                <small class="text-muted d-block">
+                                    {{ s.share.ticker }} (текущая: {{ s.share.last_price }} {{ s.share.currency }})
+                                </small>
+                            </td>
+                            <td class="text-center text-success fw-semibold">
+                                {{ s.buy_price|default:"—" }}
+                            </td>
+                            <td class="text-center text-danger fw-semibold">
+                                {{ s.sell_price|default:"—" }}
+                            </td>
+                            <td class="text-center">{{ s.trade_quantity }} шт.</td>
+                            <td class="text-center fw-bold">{{ s.total_executions }}</td>
+                            <td class="text-center">
+                                {% if s.is_active %}
+                                    <span class="badge bg-success">Активна</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Остановлена</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <form action="{% url 'dashboard:strategy_toggle' s.id %}" method="POST" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm {% if s.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}" title="Вкл/Выкл">
+                                        <i class="bi {% if s.is_active %}bi-pause-fill{% else %}bi-play-fill{% endif %}"></i>
+                                    </button>
+                                </form>
+                                <form action="{% url 'dashboard:strategy_delete' s.id %}" method="POST" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                Активных торговых стратегий пока нет. Создайте стратегию через форму справа.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Журнал операций робота -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h6 class="fw-bold mb-0"><i class="bi bi-journal-code text-secondary me-2"></i>Журнал автоматических операций симулятора</h6>
+            </div>
+            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light small">
+                        <tr>
+                            <th>Время</th>
+                            <th>Стратегия</th>
+                            <th>Действие</th>
+                            <th class="text-end">Цена</th>
+                            <th>Результат</th>
+                        </tr>
+                    </thead>
+                    <tbody class="small">
+                    {% for log in logs %}
+                        <tr>
+                            <td class="text-muted">{{ log.created_at|date:"d.m H:i:s" }}</td>
+                            <td class="fw-semibold">{{ log.strategy.name }}</td>
+                            <td>
+                                {% if log.action == "BUY" %}
+                                    <span class="badge bg-success">BUY</span>
+                                {% else %}
+                                    <span class="badge bg-danger">SELL</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">{{ log.price }} RUB</td>
+                            <td class="text-secondary">{{ log.message }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-3 text-muted">Журнал операций пока пуст</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Форма создания стратегии -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm p-3">
+            <h5 class="fw-bold mb-3"><i class="bi bi-plus-circle text-primary me-2"></i>Создать стратегию</h5>
+            <form action="{% url 'dashboard:strategies' %}" method="POST">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Название</label>
+                    {{ form.name }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Инструмент</label>
+                    {{ form.share }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold text-success">Покупать, если цена &le;</label>
+                    {{ form.buy_price }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold text-danger">Продавать, если цена &ge;</label>
+                    {{ form.sell_price }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Количество акций в сделке</label>
+                    {{ form.trade_quantity }}
+                </div>
+                <div class="form-check mb-3">
+                    {{ form.is_active }}
+                    <label class="form-check-label small fw-semibold" for="{{ form.is_active.id_for_label }}">
+                        Активировать стратегию сразу
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 fw-bold">
+                    Сохранить стратегию
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

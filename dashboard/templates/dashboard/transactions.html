@@ -1,0 +1,67 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}История сделок портфеля{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="h4 mb-0 fw-bold"><i class="bi bi-journal-text text-primary me-2"></i>История сделок</h2>
+        <p class="text-muted small mb-0">Журнал всех совершенных покупок и продаж</p>
+    </div>
+    <div>
+        <a href="{% url 'dashboard:portfolio' %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Назад в портфель
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Дата и время</th>
+                    <th>Тикер</th>
+                    <th>Тип операции</th>
+                    <th class="text-center">Кол-во</th>
+                    <th class="text-end">Цена за шт.</th>
+                    <th class="text-end">Сумма сделки</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for t in transactions %}
+                <tr>
+                    <td class="text-muted small">{{ t.created_at|date:"d.m.Y H:i:s" }}</td>
+                    <td>
+                        <a href="{% url 'dashboard:detail' t.share.id %}" class="fw-bold text-decoration-none">
+                            {{ t.share.ticker }}
+                        </a>
+                        <small class="text-muted d-block">{{ t.share.name }}</small>
+                    </td>
+                    <td>
+                        {% if t.transaction_type == "BUY" %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                <i class="bi bi-plus-circle"></i> Покупка
+                            </span>
+                        {% else %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                <i class="bi bi-dash-circle"></i> Продажа
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center fw-semibold">{{ t.quantity }} шт.</td>
+                    <td class="text-end text-muted">{{ t.price }} RUB</td>
+                    <td class="text-end fw-bold">{{ t.total_amount }} RUB</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">
+                        Сделок пока не совершалось.
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

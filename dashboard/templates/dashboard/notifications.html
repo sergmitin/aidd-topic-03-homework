@@ -1,0 +1,39 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Уведомления — Investing Demo{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="h4 mb-0 fw-bold"><i class="bi bi-bell text-primary me-2"></i>Центр уведомлений</h2>
+        <p class="text-muted small mb-0">Оповещения о достижении целевых цен и сделках торговых роботов</p>
+    </div>
+    <div>
+        <a href="{% url 'dashboard:watchlist' %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-eye me-1"></i> Настроить алерты
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="list-group list-group-flush">
+    {% for n in notifications %}
+        <div class="list-group-item p-3">
+            <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                <h6 class="mb-0 fw-bold text-dark">{{ n.title }}</h6>
+                <small class="text-muted">{{ n.created_at|date:"d.m.Y H:i:s" }}</small>
+            </div>
+            <p class="mb-1 text-secondary small">{{ n.message }}</p>
+            {% if n.share %}
+                <span class="badge bg-light text-dark border">{{ n.share.ticker }}</span>
+            {% endif %}
+        </div>
+    {% empty %}
+        <div class="p-5 text-center text-muted">
+            <i class="bi bi-bell-slash fs-1 mb-2 d-block"></i>
+            Уведомлений пока нет. При изменении цен здесь будут появляться алерты.
+        </div>
+    {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,23 +1,51 @@
 {% extends "dashboard/base.html" %}
 
 {% block title %}
-<title>Добавить инструмент</title>
+    {% if object %}Редактирование акции {{ object.ticker }}{% else %}Добавление новой акции{% endif %}
 {% endblock %}
 
 {% block content %}
-{% load crispy_forms_tags %}
-<div class="row">
-    <div class="col-4"></div>
-    <div class="col-4">
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card p-4 shadow-sm">
+            <h4 class="fw-bold mb-3">
+                {% if object %}
+                    <i class="bi bi-pencil-square text-primary me-2"></i>Редактировать инструмент
+                {% else %}
+                    <i class="bi bi-plus-circle text-primary me-2"></i>Новый биржевой инструмент
+                {% endif %}
+            </h4>
+            <p class="text-muted small mb-3">
+                Укажите параметры инструмента. Вы также можете вручную задать или изменить текущую рыночную цену.
+            </p>
 
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            {% for field in form %}
-            {{ field|as_crispy_field }}
-            {% endfor %}
-            <button class="w-100 btn btn-lg btn-primary mt-5" type="submit">Сохранить</button>
-        </form>
+            <form method="post">
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold" for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+                        {{ field }}
+                        {% if field.help_text %}
+                            <div class="form-text small">{{ field.help_text }}</div>
+                        {% endif %}
+                        {% for error in field.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+
+                <div class="d-grid gap-2 mt-4">
+                    <button class="btn btn-primary fw-bold" type="submit">
+                        Сохранить инструмент
+                    </button>
+                    <a href="{% url 'dashboard:index' %}" class="btn btn-outline-secondary">
+                        Отмена
+                    </a>
+                </div>
+            </form>
+        </div>
     </div>
-    <div class="col-4"></div>
 </div>
 {% endblock %}
